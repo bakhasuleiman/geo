@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Генератор гео-ссылки</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background: #f7f7f7; }
+    #result { margin-top: 20px; font-size: 1.2em; }
+    button { padding: 10px 20px; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Генератор гео-ссылки</h1>
+  <button id="gen">Создать ссылку</button>
+  <div id="result"></div>
+  <script>
+    document.getElementById('gen').onclick = function() {
+      fetch('/api/generate', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.link) {
+            const url = window.location.origin + data.link;
+            document.getElementById('result').innerHTML = `<a href="${url}" target="_blank">${url}</a>`;
+          } else {
+            document.getElementById('result').textContent = 'Ошибка генерации ссылки';
+          }
+        })
+        .catch(() => document.getElementById('result').textContent = 'Ошибка соединения с сервером');
+    };
+  </script>
+</body>
+</html> 

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Гео-ссылка</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #map { width: 100vw; height: 60vh; }
+    #status { margin: 20px; font-size: 1.2em; }
+  </style>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
+</head>
+<body>
+  <div id="status">Запрашиваем геолокацию...</div>
+  <div id="map"></div>
+  <script>
+    function getIdFromPath() {
+      const parts = window.location.pathname.split('/');
+      return parts[parts.length - 1];
+    }
+    function showStatus(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+    function sendCoords(id, lat, lon) {
+      fetch(`/api/track/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ latitude: lat, longitude: lon })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) showStatus('Координаты успешно отправлены!');
+        else showStatus('Ошибка отправки: ' + (data.error || 'Неизвестно'));
+      })
+      .catch(() => showStatus('Ошибка соединения с сервером.'));
+    }
+    function showMap(lat, lon) {
+      ymaps.ready(function () {
+        var map = new ymaps.Map('map', {
+          center: [lat, lon],
+          zoom: 16
+        });
+        map.geoObjects.add(new ymaps.Placemark([lat, lon], {
+          balloonContent: 'Вы здесь!'
+        }));
+      });
+    }
+    // Запрос геолокации
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        showStatus('Координаты получены, отправляем...');
+        showMap(lat, lon);
+        sendCoords(getIdFromPath(), lat, lon);
+      }, function(err) {
+        showStatus('Не удалось получить геолокацию: ' + err.message);
+      });
+    } else {
+      showStatus('Ваш браузер не поддерживает геолокацию.');
+    }
+  </script>
+</body>
+</html> 
