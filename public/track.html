@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Гео-ссылка</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f7f7f7; }
     .center {
@@ -37,14 +38,18 @@
       100% { transform: scale(1); opacity: 1; }
     }
     #status { font-size: 1.3em; text-align: center; }
+    #map { width: 90vw; height: 50vh; margin: 0 auto 30px auto; border-radius: 12px; box-shadow: 0 2px 8px #0001; display: none; }
   </style>
 </head>
 <body>
   <div class="center" id="main">
     <div class="loader" id="loader"></div>
     <div id="status">Загрузка данных...</div>
+    <div id="map"></div>
   </div>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYmFraGFudW1pIiwiYSI6ImNtY2o5YzB6ajAxb24ycHE0a2Q5anIweGgifQ.-QYrif1Do9oR6YzNugNHAQ';
     function getIdFromPath() {
       const parts = window.location.pathname.split('/');
       return parts[parts.length - 1];
@@ -54,6 +59,23 @@
     }
     function showSuccess() {
       document.getElementById('main').innerHTML = '<div class="success">&#10004;</div><div id="status">Данные успешно отправлены!</div>';
+    }
+    function showMap(lat, lon) {
+      const mapDiv = document.getElementById('map');
+      mapDiv.style.display = 'block';
+      if (window._mapboxMap) {
+        window._mapboxMap.setCenter([lon, lat]);
+        if (window._mapboxMarker) window._mapboxMarker.setLngLat([lon, lat]);
+        else window._mapboxMarker = new mapboxgl.Marker().setLngLat([lon, lat]).addTo(window._mapboxMap);
+        return;
+      }
+      window._mapboxMap = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lon, lat],
+        zoom: 16
+      });
+      window._mapboxMarker = new mapboxgl.Marker().setLngLat([lon, lat]).addTo(window._mapboxMap);
     }
     function sendCoords(id, lat, lon) {
       fetch(`/api/track/${id}`, {
@@ -93,6 +115,7 @@
       navigator.geolocation.watchPosition(function(pos) {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
+        showMap(lat, lon);
         if (shouldSend(lat, lon)) {
           lastLat = lat;
           lastLon = lon;
